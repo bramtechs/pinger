@@ -1,0 +1,90 @@
+#!/usr/bin/env python3
+from subprocess import DEVNULL, STDOUT, check_call
+from colorama import Fore, Back, Style
+from time import sleep
+
+import shlex
+import os
+import sys
+debug = False 
+
+args = sys.argv # command line arguments
+argl = len(sys.argv) # number of arguments
+
+class Request:
+	def __init__(self,host):
+		self.host = host
+
+	def get_status(self) -> str:
+		online = self.is_host_online()
+		out = ""
+		if online:
+			out += Back.GREEN + "ONLINE"
+			out += "\t\t\t" + Style.RESET_ALL + self.host
+		else:
+			out += Back.RED + "OFFLINE"
+			out += "\t\t\t" + Style.RESET_ALL + Fore.RED + self.host
+
+		# reset all formatting
+		out += Style.RESET_ALL
+		return out	
+
+	def ping_host(self) -> int:
+		cmd = "timeout 3 ping -c 1 " + self.host
+		print_debug("Running command " + cmd)
+		response = check_call(shlex.split(cmd),stdout=DEVNULL,stderr=DEVNULL)
+		return response
+
+	def is_host_online(self) -> bool:
+		return(self.ping_host()==0)
+
+
+def print_debug(text):
+	if debug:
+		print(text)
+
+print_debug(str(args) + " --> " + str(argl))
+
+def get_output(hosts) -> str:
+	hostl = len(hosts)
+	print_debug(hosts)
+	print_debug(hostl)
+	stout = ""
+	# simple mode
+	for i in range(0,hostl):
+		req = Request(hosts[i])
+		print_debug(hosts[i])
+		stout += req.get_status() 
+
+		# add newline char if not last, and if not already
+		if hostl-1 != i:
+			stout += "\n"
+	
+	# check argument
+	return stout
+
+# check if attempting to read a file
+def get_input_file() -> str:
+	check_next = False
+	for i in range(0,argl):
+		arg = args[i]
+		if check_next:
+			return arg	
+		elif "-i" in arg:
+			check_next = True	
+	return None
+
+path = get_input_file()
+if path == None:
+	args.pop(0)
+	print(get_output(args))
+else:
+	# read file content
+	content = open(path, "r")
+	items = []
+	for line in content.readlines():
+		keys = line.replace(',',' ').split()
+		for key in keys:
+			key = key.replace('\n','')
+		items += keys 
+	print(get_output(items))
